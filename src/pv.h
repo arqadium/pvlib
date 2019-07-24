@@ -42,13 +42,13 @@
  * .... | 0x02 | fill gradient ID [if bit0 set & bit4 set]
  * .... | 0x03 | stroke colour (RRGGBB) [if bit1 set & bit5 clear]
  * .... | 0x02 | stroke gradient ID [if bit1 set & bit5 set]
- * .... | 0x01 | opacity (0-255) [if bit3 set]
+ * .... | 0x01 | opacity (0-255) [if bit3 set] [100% if clear]
  * .... | 0x02 | float16: stroke width [if bit1 set]
  * .... | 0x02 | float16: stroke dash offset [if bit1 & bit2 set]
  * .... | 0x01 | stroke dash array length [if bit1 & bit2 set]
- * .... | .... | stroke dash array (2 bytes * length) [if bit1 & bit2 set]
+ * .... | .... | stroke dash array (float16 * length) [if bit1 & bit2 set]
  * .... | 0x01 | stroke join type (bits 0-1), cap type (bits 2-3) [if bit1 set]
- * .... | 0x02 | miter limit
+ * .... | 0x02 | float16: miter limit
  * .... | 0x10 | float32[4], tight bounding box of shape
  * .... | 0x04 | path count (uint32)
  * .... | .... | paths
