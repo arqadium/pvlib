@@ -34,6 +34,15 @@
  * 0x16 | .... | (shapes)
  * .... | .... | (gradients)
  *
+ * the beginning of each shape field is an 8-bit sentinel, with a collection
+ * of flags marking the presence or absence of various fields. if a flag is
+ * absent, it is discluded entirely (100% compression). the conditions of each
+ * field’s inclusion are annotated in brackets.
+ *
+ * this format primarily serialises struct fields from the corresponding
+ * nanoSVG header. IMPLEMENTORS: please read through the top parts of
+ * nanosvg.h as well.
+ *
  * Shape format
  * Offs | Size | Description
  * -----+------+-------------
@@ -46,7 +55,7 @@
  * .... | 0x02 | float16: stroke width [if bit1 set]
  * .... | 0x02 | float16: stroke dash offset [if bit1 & bit2 set]
  * .... | 0x01 | stroke dash array length [if bit1 & bit2 set]
- * .... | .... | stroke dash array (float16 * length) [if bit1 & bit2 set]
+ * .... | .... | stroke dash array (float16[length]) [if bit1 & bit2 set]
  * .... | 0x01 | stroke join type (bits 0-1), cap type (bits 2-3) [if bit1 set]
  * .... | 0x02 | float16: miter limit
  * .... | 0x10 | float32[4], tight bounding box of shape
