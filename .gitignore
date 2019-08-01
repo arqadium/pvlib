@@ -11,6 +11,11 @@
 
 *.svg
 
+# Emacs
+*~
+\#*\#
+.\#*
+
 # General
 .DS_Store
 .AppleDouble
