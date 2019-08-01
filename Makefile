@@ -3,20 +3,21 @@
 
 PROJECT := pv
 
-CFILES := src/pv.c
-HFILES := src/pv.h
+CFILES := src/pv.c src/float16.c src/nanosvg.c
+HFILES := src/pv.h src/float16.h src/nanosvg.h
 OFILES := $(CFILES:.c=.o)
 
-LD := $(CC)
+CCLD := $(CC)
 AR := ar
 STRIP := strip
-LIBS :=
+LIBS := c m
 LIBDIRS :=
 INCLUDES :=
 FWORKS :=
 
-CFLAGS := -ansi
+CFLAGS := -ansi -fPIC
 ARFLAGS := -rc
+LDFLAGS := -pie
 
 ifeq ($(OS),Windows_NT)
 	## Windows specific libraries and flags
@@ -70,7 +71,7 @@ endif
 	$(AR) $(ARFLAGS) $@ $^
 
 $(PROJECT).so: $(OFILES)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(CCLD) $(LDFLAGS) -shared -o $@ $(LIB) $^
 ifeq ($(NDEBUG),1)
 	$(STRIP) -s $@
 endif
