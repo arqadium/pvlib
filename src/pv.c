@@ -1,6 +1,8 @@
 #include "pv.h"
 #include "float16.h"
 
+#include <unilib/shand.h>
+
 #define HEADER_MAGIC_SZ 8
 
 static const char k_header_magic[HEADER_MAGIC_SZ] =
@@ -84,8 +86,8 @@ struct gradient
 	float xform[6];
 	float fx, fy;
 	int is_radial;
-	short stops_ct : 14;
-	short spread : 2;
+	unsigned short stops_ct : 14;
+	unsigned short spread : 2;
 	struct stop* stops;
 };
 
@@ -178,11 +180,74 @@ static int catalog_gradient(
 		}                                        \
 	} while( 0 )
 
+#define TMPBUF_WRITE(BUF, PTR, SZ, F) do { \
+		memcpy( (BUF), (OBJ), (SZ) ); \
+		if(fwrite( (BUF), sizeof(u8), (SZ), (F))) { \
+			return -2; \
+		} \
+	} while(0)
+#define FWRITE_WRAP(F, D, S, C) do { \
+	if(fwrite( D, S, C, F ) < S) { return -2; } while(0)
+
+static
+
+static int process_shape( struct NSVGshape* shape, FILE* f )
+{
+	u8 opts;
+
+	if(f == NULL ) { return -1; }
+
+	if( shape == NULL )
+	{
+		return 0;
+	}
+
+	opts = 0;
+
+	/* set the fill type */
+	switch(shape->fill.type)
+	{
+	case NSVG_PAINT_LINEAR_GRADIENT:
+	case NSVG_PAINT_RADIAL_GRADIENT:
+		opts |= 1 << 4;
+		/* goto case; */
+	case NSVG_PAINT_COLOR:
+		opts |= 1;
+		/* goto case; */
+	case NSVG_PAINT_NONE:
+		break;
+	}
+
+	/* set the stroke type */
+	switch( shape->stroke.type )
+	{
+	case NSVG_PAINT_LINEAR_GRADIENT:
+	case NSVG_PAINT_RADIAL_GRADIENT:
+		opts |= 1 << 5;
+		/* goto case; */
+	case NSVG_PAINT_COLOR:
+		opts |= 1 << 1;
+		/* goto case; */
+	case NSVG_PAINT_NONE:
+		break;
+	}
+
+	/* is not fully opaque? */
+	opts |= shape->opacity < 1.0f ? 1 << 3 : 0;
+
+	/* stroke has dashes? */
+	opts |= shape->strokeDashOffset > 0 && shape->strokeDashCount > 0 ?
+		1 << 2 : 0;
+
+	/* record fill rule */
+	opts |= ( shape->fillRule & 1 ) << 6;
+}
+
 int pv_fnsvg2pv( struct NSVGimage* svg, FILE* f )
 {
 	int r;
 	unsigned char buf[4], opts;
-	unsigned i, shape_ct, grads_ct;
+	unsigned i, j, shape_ct, grads_ct;
 	struct NSVGshape* cur_shape;
 	struct gradient* grads;
 
@@ -201,15 +266,10 @@ int pv_fnsvg2pv( struct NSVGimage* svg, FILE* f )
 		return -2;
 	}
 
-	r = fwrite( k_header_magic, sizeof( char ), HEADER_MAGIC_SZ, f );
+	FWRITE_WRAP( f, k_header_magic, sizeof(u8), HEADER_MAGIC_SZ );
 
-	if( r < HEADER_MAGIC_SZ )
-	{
-		return -2;
-	}
-
-	TMPBUF_CPY_WRITE( &( svg->width ), 4 );
-	TMPBUF_CPY_WRITE( &( svg->height ), 4 );
+	TMPBUF_WRITE( buf, &(svg->width), 4, f );
+	TMPBUF_WRITE( buf, &(svg->width), 4, f );
 
 	shape_ct  = 0;
 	cur_shape = svg->shapes;
@@ -261,7 +321,7 @@ int pv_fnsvg2pv( struct NSVGimage* svg, FILE* f )
 		}
 
 		opts |= ( ( cur_shape->fillRule & 1 ) << 6 ) |
-			( ( cur_shape->flags & NSVG_FLAGS_VISIBLE ) ? 1 : 0 ) << 7;
+			( ( cur_shape->flags & NSVG_FLAGS_VISIBLE ) ? 1 << 7 : 0 );
 
 #define WRITE_COLOURS( N )                                                 \
 	do                                                                      \
@@ -478,6 +538,8 @@ int pv_fnsvg2pv( struct NSVGimage* svg, FILE* f )
 		cur_shape = cur_shape->next;
 	}
 
+	cur_pos = ftell( f );
+
 	/* Record the number of shapes */
 	r = fseek( f, 0x10, SEEK_SET );
 
@@ -499,6 +561,13 @@ int pv_fnsvg2pv( struct NSVGimage* svg, FILE* f )
 	if( r < 4 )
 	{
 		return -2;
+	}
+
+	r = fseek( f, cur_pos, SEEK_SET );
+
+	if( r )
+	{
+		return -3;
 	}
 
 	for( i = 0; i < grads_ct; ++i )
@@ -537,5 +606,25 @@ int pv_fnsvg2pv( struct NSVGimage* svg, FILE* f )
 		}
 
 		/* TODO: Record all stops into a ready-to-write buffer */
+		for(j = 0; j < grads[i].stops_ct; ++i)
+		{
+			unsigned short offs;
+
+			offs = pv_f16_32to16( grads[i].stops[j].offs );
+
+			r = fwrite( &offs, sizeof( char ), 2, f );
+
+			if( r < 2 )
+			{
+				return -2;
+			}
+
+			buf[0] = grads[i].stops[j].col >> 24;
+			buf[1] = (grads[i].stops[j].col >> 16) & 0xFF;
+			buf[2] = (grads[i].stops[j].col >> 8) & 0xFF;
+			buf[3] = grads[i].stops[j].col & 0xFF;
+
+			r = fwrite( buf, sizeof(char), 4, f );
+		}
 	}
 }

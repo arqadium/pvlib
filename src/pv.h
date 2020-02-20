@@ -27,7 +27,7 @@
  *
  * this format primarily serialises struct fields from the corresponding
  * nanoSVG header. IMPLEMENTORS: please read through the top parts of
- * nanosvg.h as well.
+ * nanosvg.h as well. all multi-byte fields are stored in big-endian.
  *
  * -----
  *
@@ -88,7 +88,7 @@
  *  3  | shape has less than 100% opacity
  *  4  | fill content is gradient
  *  5  | stroke content is gradient
- *  6  | (from `enum NSVGfillRule`) fill rule == even odd
+ *  6  | (from `enum NSVGfillRule`) fill rule, 1 == even-odd, 0 == non-zero
  *  7  | unused, must be zero
  *
  * if a bit is one, the field is present, and it is encoded in the structural
@@ -127,7 +127,7 @@
  * 0x00 | 0x18 | float32[6]: xform
  * 0x18 | 0x08 | float32[2]: fx, fy
  * 0x20 | 0x02 | uint16: number of stops (bits 0-13), spread type (bits 14-15)
- * 0x22 | .... | (stops): { float16 offset, uint24 colour } (sizeof == 5)
+ * 0x22 | .... | (stops): { float16 offset, uint32 colour } (sizeof == 6)
  *      |      | offset is relative to previous stop
  *
  * the xform field combines the shape transform and the inverse of the
